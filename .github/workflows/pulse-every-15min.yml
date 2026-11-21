@@ -44,6 +44,7 @@ jobs:
           git config user.email "pulse@oracleinsight.xyz"
 
           git add -A
+          git add -f pulses/  # .gitignore'd — force-add the Pulse JSON
           if ! git diff --cached --quiet; then
             git commit -m "📡 Pulse ${{ steps.pulse.outputs.symbol }} consensus=\$${{ steps.pulse.outputs.consensus }} score=${{ steps.pulse.outputs.score }} dev=${{ steps.pulse.outputs.dev }}bps uid=${{ steps.pulse.outputs.uid }} attester=${{ steps.pulse.outputs.attester }} — ${{ steps.pulse.outputs.file }}"
             git push origin HEAD
