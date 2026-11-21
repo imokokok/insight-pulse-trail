@@ -1,0 +1,107 @@
+{
+  "uid": "0x91b1fb452ec2b52294c935cb62b2bd004e3901e468f6cd22f004df7602e11de3",
+  "schemaVersion": 1,
+  "attester": "0x25cD6643947A6C9B77708dE235F90377f82293a0",
+  "attesterLabel": "Insight Pulse sample attester",
+  "signedAt": "2026-11-21T17:56:11.296Z",
+  "validForSeconds": 3600,
+  "validUntil": 1795287371,
+  "signature": "0xabe25a783eee0c5408d74f33a3810aced7e2a8d16d55ebba7aaebf289589ebf83d11879f40b91ee2e03c50a52a66b3eca10ad9f67def8800c05f3b433877c7101b",
+  "data": {
+    "symbol": "ETH",
+    "subjectChainId": 1,
+    "consensusPrice": 167938000000,
+    "maxDeviationBps": 25,
+    "agreementBps": 9804,
+    "participantCount": 3,
+    "quorumSatisfied": true,
+    "trustScore": 57,
+    "providerObservationsHash": "0xe3eefb719a4032d6d83d0bbe56ef5f8d0a256d459298af7a18b4b376017a30d8",
+    "evaluatedAt": 1795283771,
+    "validUntil": 1795287371,
+    "schemaVersion": 1
+  },
+  "eip712": {
+    "domain": {
+      "name": "Insight Pulse",
+      "version": "1",
+      "chainId": 1
+    },
+    "types": {
+      "OraclePulse": [
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "subjectChainId",
+          "type": "uint256"
+        },
+        {
+          "name": "consensusPrice",
+          "type": "uint256"
+        },
+        {
+          "name": "maxDeviationBps",
+          "type": "uint256"
+        },
+        {
+          "name": "agreementBps",
+          "type": "uint256"
+        },
+        {
+          "name": "participantCount",
+          "type": "uint256"
+        },
+        {
+          "name": "quorumSatisfied",
+          "type": "bool"
+        },
+        {
+          "name": "trustScore",
+          "type": "uint256"
+        },
+        {
+          "name": "providerObservationsHash",
+          "type": "bytes32"
+        },
+        {
+          "name": "evaluatedAt",
+          "type": "uint256"
+        },
+        {
+          "name": "validUntil",
+          "type": "uint256"
+        },
+        {
+          "name": "schemaVersion",
+          "type": "uint256"
+        }
+      ]
+    },
+    "primaryType": "OraclePulse"
+  },
+  "sources": [
+    {
+      "name": "chainlink-ethereum",
+      "price": 1675.24662714,
+      "timestamp": 1795283771,
+      "feedId": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+      "dataAgeSeconds": 996
+    },
+    {
+      "name": "coingecko",
+      "price": 1679.38,
+      "timestamp": 1795283771,
+      "feedId": "coingecko:ethereum/usd",
+      "dataAgeSeconds": null
+    },
+    {
+      "name": "okx",
+      "price": 1683.29,
+      "timestamp": 1795283771,
+      "feedId": "okx:ETH-USDT",
+      "dataAgeSeconds": null
+    }
+  ]
+}
