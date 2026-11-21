@@ -1,0 +1,48 @@
+name: Weekly BTC OpenTimestamps Upgrade
+
+on:
+  schedule:
+    # Every Wednesday 23:00 UTC — 3 days after stamp, gives BTC time to confirm
+    - cron: '0 23 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade-week:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install opentimestamps-client
+        run: pip install -q opentimestamps-client
+
+      - name: Fetch BTC confirmations for last week
+        id: upgrade
+        run: |
+          python3 scripts/upgrade-week.py
+
+      - name: Commit upgraded .ots files
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "Insight Pulse Bot"
+          git config user.email "pulse@oracleinsight.xyz"
+
+          git add -f timestamps/
+          if ! git diff --cached --quiet; then
+            git commit -m "🔓 BTC OpenTimestamps upgraded — confirmed proofs fetched"
+            git push origin HEAD
+          else
+            echo "No upgrades to commit (calendars may still be pending)"
+          fi

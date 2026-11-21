@@ -1,0 +1,49 @@
+name: Weekly BTC OpenTimestamps Stamp
+
+on:
+  schedule:
+    # Every Sunday 23:00 UTC — after the week ends (UTC Mon=Sun night)
+    - cron: '0 23 * * 0'
+  workflow_dispatch:  # Manual trigger with optional --week param
+
+permissions:
+  contents: write
+
+jobs:
+  stamp-week:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install opentimestamps-client
+        run: pip install -q opentimestamps-client
+
+      - name: Stamp this week's pulses
+        id: stamp
+        run: |
+          python3 scripts/stamp-week.py
+
+      - name: Commit & push timestamp files
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "Insight Pulse Bot"
+          git config user.email "pulse@oracleinsight.xyz"
+
+          git add -A
+          git add -f timestamps/  # .gitignore'd — force-add the .ots proof files
+          if ! git diff --cached --quiet; then
+            git commit -m "🔒 BTC OpenTimestamps week=${{ steps.stamp.outputs.week }} pulses=${{ steps.stamp.outputs.pulse_count }} — ${{ steps.stamp.outputs.ots_file }}"
+            git push origin HEAD
+          else
+            echo "No changes to commit"
+          fi
