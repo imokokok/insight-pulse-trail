@@ -1,0 +1,19 @@
+{
+  "week": "2026-W47",
+  "monday": "2026-11-17",
+  "sunday": "2026-11-23",
+  "stampedAt": "2026-11-21T18:04:38.977879+00:00",
+  "pulseCount": 1,
+  "calendars": [
+    "https://alice.btc.calendar.opentimestamps.org",
+    "https://bob.btc.calendar.opentimestamps.org",
+    "https://finney.calendar.eternitywall.com",
+    "https://ots.btc.catallaxy.com"
+  ],
+  "uids": [
+    {
+      "uid": "0x91b1fb452ec2b52294c935cb62b2bd004e3901e468f6cd22f004df7602e11de3",
+      "pulse": "pulses/ETH/2026/11/21/1756-ETH.json"
+    }
+  ]
+}
