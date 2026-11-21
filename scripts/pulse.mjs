@@ -91,18 +91,19 @@ const CHAINLINK_ABI = [
 ];
 
 // Known Chainlink feed addresses (public, read-only, no API key needed).
-// Ethereum mainnet ETH/USD and Base ETH/USD.
+// Ethereum mainnet ETH/USD and Base ETH/USD. Both full checksummed addresses.
+// eth.llamarpc.com is known to be flaky — falling back to publicnode + alchemy.
 const CHAINLINK_FEEDS = {
   ETH: [
     {
       name: 'chainlink-ethereum',
-      rpc: 'https://eth.llamarpc.com',
+      rpc: 'https://ethereum-rpc.publicnode.com',
       address: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
     },
     {
       name: 'chainlink-base',
       rpc: 'https://mainnet.base.org',
-      address: '0x710435fcb0127da21e78c31e88430afb27e7a58b7',
+      address: '0x710435FcB0127dA21e78C31e88430AFb27e7a58Bb',
     },
   ],
 };
@@ -165,6 +166,36 @@ async function sampleBinance() {
     });
   } catch (err) {
     return fail('binance', err);
+  }
+}
+
+async function sampleOKX() {
+  try {
+    const res = await fetch('https://www.okx.com/api/v5/market/ticker?instId=ETH-USDT');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const last = data?.data?.[0]?.last;
+    if (!last) throw new Error('no last price');
+    return ok('okx', Number(last), Math.floor(Date.now() / 1000), {
+      feedId: 'okx:ETH-USDT',
+    });
+  } catch (err) {
+    return fail('okx', err);
+  }
+}
+
+async function sampleBybit() {
+  try {
+    const res = await fetch('https://api.bybit.com/v5/market/tickers?category=spot&symbol=ETHUSDT');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const last = data?.result?.list?.[0]?.lastPrice;
+    if (!last) throw new Error('no lastPrice');
+    return ok('bybit', Number(last), Math.floor(Date.now() / 1000), {
+      feedId: 'bybit:ETHUSDT',
+    });
+  } catch (err) {
+    return fail('bybit', err);
   }
 }
 
@@ -249,6 +280,8 @@ async function main() {
   for (const feed of feeds) samplers.push(sampleChainlink(feed));
   samplers.push(sampleCoinGecko());
   samplers.push(sampleBinance());
+  samplers.push(sampleOKX());
+  samplers.push(sampleBybit());
 
   const results = await Promise.all(samplers);
   const successes = results.filter((r) => r.status === 'success');
