@@ -23,12 +23,10 @@ const {
   createPublicClient,
   http,
   keccak256,
-  encodeAbiParameters,
-  decodeAbiParameters,
   hashTypedData,
-  privateKeyToAccount,
   signTypedData,
 } = require('viem');
+const { privateKeyToAccount } = require('viem/accounts');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -90,20 +88,14 @@ const CHAINLINK_ABI = [
   },
 ];
 
-// Known Chainlink feed addresses (public, read-only, no API key needed).
-// Ethereum mainnet ETH/USD and Base ETH/USD. Both full checksummed addresses.
-// eth.llamarpc.com is known to be flaky — falling back to publicnode + alchemy.
+// Known Chainlink feed — Ethereum mainnet ETH/USD (eth_call, no API key).
+// Base feed excluded — address checksum unstable + we already have 3 API sources.
 const CHAINLINK_FEEDS = {
   ETH: [
     {
       name: 'chainlink-ethereum',
       rpc: 'https://ethereum-rpc.publicnode.com',
       address: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
-    },
-    {
-      name: 'chainlink-base',
-      rpc: 'https://mainnet.base.org',
-      address: '0x710435FcB0127dA21e78C31e88430AFb27e7a58Bb',
     },
   ],
 };
@@ -279,9 +271,8 @@ async function main() {
   const feeds = CHAINLINK_FEEDS[SYMBOL] || [];
   for (const feed of feeds) samplers.push(sampleChainlink(feed));
   samplers.push(sampleCoinGecko());
-  samplers.push(sampleBinance());
   samplers.push(sampleOKX());
-  samplers.push(sampleBybit());
+  // Binance/Bybit excluded — GitHub Actions runner IPs hit 451/403 region blocks.
 
   const results = await Promise.all(samplers);
   const successes = results.filter((r) => r.status === 'success');
