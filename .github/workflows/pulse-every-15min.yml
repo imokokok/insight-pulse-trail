@@ -18,80 +18,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history so subsequent runs can compare
+          fetch-depth: 0
           persist-credentials: true
 
-      - name: Get Pulse from Insight
-        id: fetch
-        run: |
-          # Insight public endpoint — EIP-712 signed, sample signer by default
-          # Accept ?symbol=ETH&chain=ethereum&sample=true (all optional)
-          RESPONSE=$(curl -sS -w "\n%{http_code}" "https://www.oracleinsight.xyz/api/v1/pulse/latest")
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
 
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Fetch failed: HTTP $HTTP_CODE"
-            echo "$BODY" | head -20
-            exit 1
-          fi
+      - name: Install deps
+        run: npm ci --include=dev || npm install
 
-          # Extract the attestation block from the API response
-          PULSE_JSON=$(echo "$BODY" | python3 -c "
-            import sys, json
-            resp = json.load(sys.stdin)
-            if resp.get('ok') and resp.get('data', {}).get('attestation'):
-                json.dump(resp['data']['attestation'], sys.stdout, indent=2)
-            else:
-                print('ERROR: missing attestation in response', file=sys.stderr)
-                sys.exit(1)
-          ")
-
-          # Extract human-readable fields for commit message
-          SYMBOL=$(echo "$BODY" | python3 -c "
-            import sys, json
-            resp = json.load(sys.stdin)
-            a = resp['data']['attestation']
-            print(f\"{a['data']['symbol']}\")
-          ")
-          SCORE=$(echo "$BODY" | python3 -c "
-            import sys, json
-            resp = json.load(sys.stdin)
-            a = resp['data']['attestation']
-            print(f\"{a['data']['trustScore']}\")
-          ")
-          DEV=$(echo "$BODY" | python3 -c "
-            import sys, json
-            resp = json.load(sys.stdin)
-            a = resp['data']['attestation']
-            print(f\"{a['data']['maxDeviationBps']}\")
-          ")
-          COMMITMENT=$(echo "$BODY" | python3 -c "
-            import sys, json
-            resp = json.load(sys.stdin)
-            a = resp['data']['attestation']
-            print(f\"{a['uid'][:14]}...\")
-          ")
-          ATTESTER=$(echo "$BODY" | python3 -c "
-            import sys, json
-            resp = json.load(sys.stdin)
-            a = resp['data']['attestation']
-            print(f\"{a['attester'][:10]}...\")
-          ")
-
-          echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
-          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
-          echo "dev=$DEV" >> "$GITHUB_OUTPUT"
-          echo "commitment=$COMMITMENT" >> "$GITHUB_OUTPUT"
-          echo "attester=$ATTESTER" >> "$GITHUB_OUTPUT"
-
-          # Write to dated file: pulses/YYYY/MM/DD/HHMM-symbol.json
-          TS=$(date -u +"%Y/%m/%d")
-          FILE="pulses/$TS/$(date -u +"%H%M")-$SYMBOL.json"
-          mkdir -p "$(dirname "$FILE")"
-          echo "$PULSE_JSON" > "$FILE"
-
-          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+      - name: Run Pulse sampler
+        id: pulse
+        env:
+          PULSE_SAMPLE_PRIVATE_KEY: ${{ secrets.PULSE_SAMPLE_PRIVATE_KEY }}
+          PULSE_SYMBOL: 'ETH'
+        run: node scripts/pulse.mjs
 
       - name: Commit & push
         run: |
@@ -100,9 +44,8 @@ jobs:
           git config user.email "pulse@oracleinsight.xyz"
 
           git add -A
-          # --allow-empty: keep consecutive commits even when fetch fails silently
           if ! git diff --cached --quiet; then
-            git commit -m "📡 Pulse ${{ steps.fetch.outputs.symbol }} score=${{ steps.fetch.outputs.score }} dev=${{ steps.fetch.outputs.dev }}bps commitment=${{ steps.fetch.outputs.commitment }} attester=${{ steps.fetch.outputs.attester }} — ${{ steps.fetch.outputs.file }}"
+            git commit -m "📡 Pulse ${{ steps.pulse.outputs.symbol }} consensus=\$${{ steps.pulse.outputs.consensus }} score=${{ steps.pulse.outputs.score }} dev=${{ steps.pulse.outputs.dev }}bps uid=${{ steps.pulse.outputs.uid }} attester=${{ steps.pulse.outputs.attester }} — ${{ steps.pulse.outputs.file }}"
             git push origin HEAD
           else
             echo "No changes to commit"

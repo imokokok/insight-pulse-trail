@@ -1,0 +1,13 @@
+{
+  "name": "insight-pulse-trail",
+  "version": "1.0.0",
+  "description": "Bitcoin-anchored trail of Insight oracle quality pulses — EIP-712 signed, OpenTimestamps-proven",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pulse": "node scripts/pulse.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}
