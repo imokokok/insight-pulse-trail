@@ -19,14 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 
 const require = createRequire(import.meta.url);
-const {
-  createPublicClient,
-  http,
-  keccak256,
-  hashTypedData,
-  signTypedData,
-} = require('viem');
-const { privateKeyToAccount } = require('viem/accounts');
+const { createPublicClient, http, keccak256, hashTypedData } = require('viem');
+const { privateKeyToAccount, signTypedData } = require('viem/accounts');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
