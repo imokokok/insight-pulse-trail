@@ -11,7 +11,9 @@
  * What it does:
  *   1. Loads the Pulse JSON
  *   2. Re-runs the scoring rules on rawSources[] and checks they produce
- *      the same consensus / agreement / trustScore as signed
+ *      the same consensus / agreement / trustScore / providerObservationsHash
+ *      as signed (the observationsHash is the deterministic hash binding all
+ *      raw sources together — if it differs, the Pulse was tampered with)
  *   3. Verifies the EIP-712 signature locally using viem
  *   4. Optionally fetches oracleinsight.xyz/.well-known/oracle-keys.json
  *      and checks the attester is registered
@@ -121,6 +123,23 @@ function trustScore(prices, consensus, agreementBpsVal, quorumSatisfied) {
   return Math.max(0, Math.min(100, Math.round(raw * 100)));
 }
 
+// ─── Evidence hash (must match pulse.mjs EXACTLY) ─────────────────────────────
+// Duplicated here intentionally so verification works offline without importing
+// from pulse.mjs (which runs in GitHub Actions context).
+function observationsHash(sources) {
+  const sorted = [...sources].sort((a, b) => a.name.localeCompare(b.name));
+  const parts = sorted.map((p) => {
+    const priceScaled = p.priceScaled ?? Math.round(p.price * PRICE_SCALE);
+    const age = p.dataAgeSeconds ?? 0;
+    const ts = p.sampledAt ?? p.timestamp;
+    return `${p.name}|${p.feedId ?? ''}|${priceScaled}|${ts}|${age}|1`;
+  });
+  // viem's keccak256 takes hex input; encode the UTF-8 joined string as hex
+  const joined = parts.join('\n');
+  const hex = '0x' + Buffer.from(joined, 'utf8').toString('hex');
+  return keccak256(hex);
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -147,6 +166,7 @@ async function main() {
   const reAgree = agreementBps(prices);
   const reQuorum = sources.length >= 3;
   const reTrust = trustScore(prices, reConsensus, reAgree, reQuorum);
+  const reHash = observationsHash(sources);
 
   // Compare
   const mismatches = [];
@@ -160,12 +180,20 @@ async function main() {
   if (sources.length !== data.participantCount) mismatches.push(`participantCount: expected ${data.participantCount}, got ${sources.length}`);
   if (reQuorum !== data.quorumSatisfied) mismatches.push(`quorumSatisfied: expected ${data.quorumSatisfied}, recomputed ${reQuorum}`);
 
+  // CRITICAL: providerObservationsHash binds all raw sources together.
+  // If this differs, rawSources[] was tampered with (someone swapped values
+  // but kept consensus/score/other computed fields consistent).
+  if (reHash.toLowerCase() !== data.providerObservationsHash.toLowerCase()) {
+    mismatches.push(`providerObservationsHash: expected ${data.providerObservationsHash}, recomputed ${reHash}`);
+  }
+
   if (mismatches.length > 0) {
     console.error('❌ Scoring rules mismatch — Pulse was NOT produced by the documented algorithm:');
     mismatches.forEach(m => console.error(`   • ${m}`));
     process.exit(1);
   }
   console.log(`   consensus=$${reConsensus.toFixed(2)}  deviation=${reDev}bps  agreement=${reAgree}bps  score=${reTrust}`);
+  console.log(`   obsHash=${reHash.slice(0, 12)}...${reHash.slice(-6)}  (rawSources[] → commitment hash matches signed field)`);
   console.log('   ✅ All fields match — Pulse was produced by the documented algorithm');
 
   // 3. Verify EIP-712 signature

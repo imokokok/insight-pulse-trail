@@ -128,6 +128,32 @@ fell through.
 
 ---
 
+## Trail vs Insight production pipeline — two independent systems
+
+> **Trail and Insight are two separate data-collection + signing pipelines.
+> They may produce slightly different consensus values even at the same
+> timestamp.** Do not expect bit-for-bit equality between this trail and
+> Insight's own `/api/v1/pulse/latest` endpoint.
+
+| | **Insight production** | **This trail** |
+|---|---|---|
+| **Runs where** | Cloudflare Workers + Supabase | GitHub Actions (Ubuntu runner) |
+| **Sources** | 6–8 providers (Chainlink, Pyth, RedStone, Chronicle, Supra, ...) | 3 providers (Chainlink, CoinGecko, OKX) |
+| **Consensus** | MAD outlier filter + weighted median | Simple median (3 sources too small for MAD) |
+| **Agreement** | Weighted standard deviation | Population stddev over raw values |
+| **Trust formula** | Production tuning weights | RULES.md v1 simple weights |
+| **Signer key** | Production attester (role: `attester`) | Sample attester (role: `sample`) |
+| **Dependency on other Insight services** | Yes — Oracle Watch cache, DB, attestation framework | **Zero** — self-contained |
+
+The trail intentionally keeps the algorithm simple and self-contained so
+anyone can clone this repo, re-run the scoring rules, and get the same
+result without needing Insight's DB, RPC configuration, or paid tier
+resources. Insight's production pipeline prioritises robustness (more
+sources, stale detection, weighted consensus) over this trail's goal of
+**easy independent verification**.
+
+---
+
 ## Scoring rules (high level)
 
 See **[RULES.md](RULES.md)** for the exact algorithm, every formula, and every
