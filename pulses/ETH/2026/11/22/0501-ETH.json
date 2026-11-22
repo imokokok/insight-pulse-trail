@@ -1,0 +1,164 @@
+{
+  "uid": "0x4a3a899b2562d4fecebec29c164b741bda17fe635aa35789a69c427d068c67bd",
+  "schemaVersion": 1,
+  "rulesVersion": 1,
+  "rulesUrl": "https://github.com/imokokok/insight-pulse-trail/blob/main/RULES.md",
+  "attester": "0x25cD6643947A6C9B77708dE235F90377f82293a0",
+  "attesterLabel": "Insight Pulse sample attester",
+  "attesterRole": "sample",
+  "signedAt": "2026-11-22T05:01:11.237Z",
+  "validForSeconds": 3600,
+  "validUntil": 1795327271,
+  "signature": "0x3912e59305db136874cc735dec28dba884a330d2cecc76428462a4714b6f5a6434de0b3875ac9281c1a440cb951351d320a8ca3a2dc2afc38ff9c815a1b5bb821b",
+  "data": {
+    "symbol": "ETH",
+    "subjectChainId": 1,
+    "consensusPrice": 166360000000,
+    "maxDeviationBps": 12,
+    "agreementBps": 9930,
+    "participantCount": 3,
+    "quorumSatisfied": true,
+    "trustScore": 57,
+    "providerObservationsHash": "0xb0fceb527b5e371375020cd58e58ebf05184c3ae832494049fe66861cb0a1115",
+    "evaluatedAt": 1795323671,
+    "validUntil": 1795327271,
+    "schemaVersion": 1
+  },
+  "eip712": {
+    "domain": {
+      "name": "Insight Pulse",
+      "version": "1",
+      "chainId": 1
+    },
+    "types": {
+      "OraclePulse": [
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "subjectChainId",
+          "type": "uint256"
+        },
+        {
+          "name": "consensusPrice",
+          "type": "uint256"
+        },
+        {
+          "name": "maxDeviationBps",
+          "type": "uint256"
+        },
+        {
+          "name": "agreementBps",
+          "type": "uint256"
+        },
+        {
+          "name": "participantCount",
+          "type": "uint256"
+        },
+        {
+          "name": "quorumSatisfied",
+          "type": "bool"
+        },
+        {
+          "name": "trustScore",
+          "type": "uint256"
+        },
+        {
+          "name": "providerObservationsHash",
+          "type": "bytes32"
+        },
+        {
+          "name": "evaluatedAt",
+          "type": "uint256"
+        },
+        {
+          "name": "validUntil",
+          "type": "uint256"
+        },
+        {
+          "name": "schemaVersion",
+          "type": "uint256"
+        }
+      ]
+    },
+    "primaryType": "OraclePulse"
+  },
+  "rawSources": [
+    {
+      "name": "chainlink-ethereum",
+      "feedId": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+      "price": 1664.2906,
+      "priceScaled": 166429060000,
+      "status": "success",
+      "sourceType": "on-chain",
+      "rpcOrEndpoint": "https://ethereum-rpc.publicnode.com",
+      "sampledAt": 1795323671,
+      "sampledAtISO": "2026-11-22T05:01:11.000Z",
+      "dataAgeSeconds": 3576,
+      "rawResponse": {
+        "rpc": "https://ethereum-rpc.publicnode.com",
+        "feedAddress": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+        "decimals": 8,
+        "roundId": "129127208515966897511",
+        "answer": "166429060000",
+        "startedAt": 1795320077,
+        "updatedAt": 1795320095,
+        "answeredInRound": "129127208515966897511"
+      }
+    },
+    {
+      "name": "coingecko",
+      "feedId": "coingecko:ethereum/usd",
+      "price": 1661.55,
+      "priceScaled": 166155000000,
+      "status": "success",
+      "sourceType": "api",
+      "rpcOrEndpoint": "https://api.coingecko.com/api/v3/simple/price",
+      "sampledAt": 1795323671,
+      "sampledAtISO": "2026-11-22T05:01:11.000Z",
+      "dataAgeSeconds": null,
+      "rawResponse": {
+        "endpoint": "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=false",
+        "httpStatus": 200,
+        "response": {
+          "ethereum": {
+            "usd": 1661.55
+          }
+        }
+      }
+    },
+    {
+      "name": "okx",
+      "feedId": "okx:ETH-USDT",
+      "price": 1663.6,
+      "priceScaled": 166360000000,
+      "status": "success",
+      "sourceType": "api",
+      "rpcOrEndpoint": "https://www.okx.com/api/v5/market/ticker",
+      "sampledAt": 1795323671,
+      "sampledAtISO": "2026-11-22T05:01:11.000Z",
+      "dataAgeSeconds": null,
+      "rawResponse": {
+        "endpoint": "https://www.okx.com/api/v5/market/ticker?instId=ETH-USDT",
+        "httpStatus": 200,
+        "instId": "ETH-USDT",
+        "last": "1663.6",
+        "lastSz": "0.00269",
+        "askPx": "1663.61",
+        "bidPx": "1663.6",
+        "volCcy24h": "315898406.31007829",
+        "ts": "1795323670372"
+      }
+    }
+  ],
+  "failures": [],
+  "metadata": {
+    "consensusAlgorithm": "median of 3+ independent sources",
+    "agreementAlgorithm": "1 - (stddev/mean * 10) clamped to [0, 1]",
+    "trustFormula": "agreement*0.4 + min(1, n/5)*0.3 + quorum*0.3 - min(0.5, maxDev/5000)",
+    "quorumMin": 3,
+    "subjectChainId": 1,
+    "symbol": "ETH"
+  }
+}
