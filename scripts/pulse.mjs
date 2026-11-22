@@ -2,14 +2,16 @@
  * @fileoverview Insight Pulse sampling + signing — runs in GitHub Actions.
  *
  * Polls 3+ public oracle / oracle-adjacent sources, computes a median
- * consensus, and emits an EIP-712 signed OraclePulse that mirrors the
- * `Insight Pulse` schema in the main Insight repo. The signature is fully
- * verifiable against the Pulse domain (`name: "Insight Pulse"`, chainId 1)
- * and the attester public key registered at oracleinsight.xyz/.well-known/.
+ * consensus, and emits an EIP-712 signed OraclePulse. Every raw source
+ * sample — both successes and failures — is recorded verbatim so anyone
+ * can clone this repo, re-run the scoring rules, and arrive at the same
+ * consensus, deviation, and trust score.
  *
  * Zero Insight-dependency: no DB, no API calls to oracleinsight.xyz, no
  * Cloudflare Workers CPU budget. This file is self-contained so the trail
  * can run independently even if insight.xyz is down.
+ *
+ * For the scoring rules documented below, see RULES.md in this repo.
  */
 
 import { createRequire } from 'node:module';
@@ -32,6 +34,12 @@ const QUORUM_MIN = 3;
 const PRICE_SCALE = 1e8;
 const PCT_SCALE = 100;
 const RATIO_SCALE = 1e4;
+
+// Scoring rules metadata — anyone who wants to verify locally should use the
+// exact algorithm documented in RULES.md. Bump RULES_VERSION every time the
+// algorithm changes.
+const RULES_VERSION = 1;
+const RULES_URL = 'https://github.com/imokokok/insight-pulse-trail/blob/main/RULES.md';
 
 // EIP-712 domain + types — MUST match Insight's pulseAttestation.ts exactly
 // so signatures produced here are verifiable by oracleinsight.xyz/verify.
@@ -112,7 +120,7 @@ async function sampleChainlink(feed) {
       abi: CHAINLINK_ABI,
       functionName: 'decimals',
     });
-    const [, answer, , updatedAt] = await client.readContract({
+    const [roundId, answer, startedAt, updatedAt, answeredInRound] = await client.readContract({
       address: feed.address,
       abi: CHAINLINK_ABI,
       functionName: 'latestRoundData',
@@ -120,7 +128,20 @@ async function sampleChainlink(feed) {
     const price = Number(answer) / 10 ** Number(decimals);
     const now = Math.floor(Date.now() / 1000);
     const age = now - Number(updatedAt);
-    return ok(feed.name, price, now, { dataAgeSeconds: age, feedId: feed.address });
+    return ok(feed.name, price, now, {
+      dataAgeSeconds: age,
+      feedId: feed.address,
+      raw: {
+        rpc: feed.rpc,
+        feedAddress: feed.address,
+        decimals: Number(decimals),
+        roundId: String(roundId),
+        answer: String(answer),
+        startedAt: Number(startedAt),
+        updatedAt: Number(updatedAt),
+        answeredInRound: String(answeredInRound),
+      },
+    });
   } catch (err) {
     return fail(feed.name, err);
   }
@@ -136,22 +157,10 @@ async function sampleCoinGecko() {
     if (!price) throw new Error('no eth key');
     return ok('coingecko', Number(price), Math.floor(Date.now() / 1000), {
       feedId: 'coingecko:ethereum/usd',
+      raw: { endpoint: url, httpStatus: res.status, response: data },
     });
   } catch (err) {
     return fail('coingecko', err);
-  }
-}
-
-async function sampleBinance() {
-  try {
-    const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return ok('binance', Number(data.price), Math.floor(Date.now() / 1000), {
-      feedId: 'binance:ETHUSDT',
-    });
-  } catch (err) {
-    return fail('binance', err);
   }
 }
 
@@ -160,28 +169,25 @@ async function sampleOKX() {
     const res = await fetch('https://www.okx.com/api/v5/market/ticker?instId=ETH-USDT');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const last = data?.data?.[0]?.last;
+    const obj = data?.data?.[0];
+    const last = obj?.last;
     if (!last) throw new Error('no last price');
     return ok('okx', Number(last), Math.floor(Date.now() / 1000), {
       feedId: 'okx:ETH-USDT',
+      raw: {
+        endpoint: 'https://www.okx.com/api/v5/market/ticker?instId=ETH-USDT',
+        httpStatus: res.status,
+        instId: obj?.instId,
+        last: obj?.last,
+        lastSz: obj?.lastSz,
+        askPx: obj?.askPx,
+        bidPx: obj?.bidPx,
+        volCcy24h: obj?.volCcy24h,
+        ts: obj?.ts,
+      },
     });
   } catch (err) {
     return fail('okx', err);
-  }
-}
-
-async function sampleBybit() {
-  try {
-    const res = await fetch('https://api.bybit.com/v5/market/tickers?category=spot&symbol=ETHUSDT');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const last = data?.result?.list?.[0]?.lastPrice;
-    if (!last) throw new Error('no lastPrice');
-    return ok('bybit', Number(last), Math.floor(Date.now() / 1000), {
-      feedId: 'bybit:ETHUSDT',
-    });
-  } catch (err) {
-    return fail('bybit', err);
   }
 }
 
@@ -345,8 +351,11 @@ async function main() {
   const attestation = {
     uid,
     schemaVersion: 1,
+    rulesVersion: RULES_VERSION,
+    rulesUrl: RULES_URL,
     attester: account.address,
     attesterLabel: 'Insight Pulse sample attester',
+    attesterRole: 'sample',
     signedAt: new Date().toISOString(),
     validForSeconds: 3600,
     validUntil: message.validUntil,
@@ -357,13 +366,41 @@ async function main() {
       types: PULSE_TYPES,
       primaryType: 'OraclePulse',
     },
-    sources: successes.map((s) => ({
+    // ─── Complete raw evidence for independent verification ─────────────────
+    // Every successful source's raw data — anyone can clone this repo, re-run
+    // the scoring rules, and arrive at the same consensus / trust score.
+    rawSources: successes.map((s) => ({
       name: s.name,
-      price: s.price,
-      timestamp: s.timestamp,
       feedId: s.feedId,
-      dataAgeSeconds: s.dataAgeSeconds ?? null,
+      price: s.price,
+      priceScaled: Math.round(s.price * PRICE_SCALE),
+      status: 'success',
+      sourceType: s.name.startsWith('chainlink') ? 'on-chain' : 'api',
+      rpcOrEndpoint: s.name.startsWith('chainlink') ? CHAINLINK_FEEDS[SYMBOL][0].rpc :
+                     s.name === 'coingecko' ? 'https://api.coingecko.com/api/v3/simple/price' :
+                     s.name === 'okx' ? 'https://www.okx.com/api/v5/market/ticker' :
+                     null,
+      sampledAt: s.timestamp,      // unix seconds
+      sampledAtISO: new Date(s.timestamp * 1000).toISOString(),
+      dataAgeSeconds: s.dataAgeSeconds ?? null,  // for on-chain feeds only
+      rawResponse: s.raw ?? null,  // verbatim RPC/API response key fields
     })),
+    // Every failed source — so readers know what was attempted and why it fell through.
+    failures: failures.map((f) => ({
+      name: f.name,
+      feedId: f.feedId ?? null,
+      status: 'error',
+      error: f.error,
+      sampledAt: Math.floor(Date.now() / 1000),
+    })),
+    metadata: {
+      consensusAlgorithm: 'median of 3+ independent sources',
+      agreementAlgorithm: '1 - (stddev/mean * 10) clamped to [0, 1]',
+      trustFormula: 'agreement*0.4 + min(1, n/5)*0.3 + quorum*0.3 - min(0.5, maxDev/5000)',
+      quorumMin: QUORUM_MIN,
+      subjectChainId: SUBJECT_CHAIN_ID,
+      symbol: SYMBOL,
+    },
   };
 
   // 6. Write to dated path
