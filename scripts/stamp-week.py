@@ -16,7 +16,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -43,14 +43,13 @@ def week_range(week_id: str) -> tuple[date, date]:
     """Return the (Monday, Sunday) date range for a given ISO week ID."""
     y_str, _, w_str = week_id.partition("-W")
     y, w = int(y_str), int(w_str)
-    # Find the Monday of that week
-    jan1 = date(y, 1, 1)
-    # ISO week 1 is the week containing Jan 4
-    iso_year_start = jan1.toordinal() - jan1.weekday() + 1
-    # Find the ordinal of week w's Monday
-    monday_ord = iso_year_start + (w - 1) * 7
-    monday = date.fromordinal(monday_ord)
-    sunday = date.fromordinal(monday_ord + 6)
+    # ISO week 1 is the week containing January 4; its first day is Monday.
+    # Starting from January 1 and adjusting by its weekday is off by one for
+    # some years, which can exclude every Monday pulse from the weekly stamp.
+    jan4 = date(y, 1, 4)
+    first_monday = jan4 - timedelta(days=jan4.weekday())
+    monday = first_monday + timedelta(weeks=w - 1)
+    sunday = monday + timedelta(days=6)
     return monday, sunday
 
 
